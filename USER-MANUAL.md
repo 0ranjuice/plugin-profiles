@@ -14,6 +14,7 @@ Version 1.0.0
   - [`/profile-load`](#profile-load)
   - [`/profile-list`](#profile-list)
   - [`/profile-delete`](#profile-delete)
+  - [`/profile-reset`](#profile-reset)
 - [Workflows & Recipes](#workflows--recipes)
 - [Profile Naming Rules](#profile-naming-rules)
 - [Safety Features](#safety-features)
@@ -28,6 +29,7 @@ Version 1.0.0
 /profile-save my-dev-setup      # Save your current plugins as "my-dev-setup"
 /profile-list                    # See all saved profiles
 /profile-load my-dev-setup       # Restore that set of plugins (restart required)
+/profile-reset                   # Enable all installed plugins (clean slate)
 ```
 
 That's it. You now have a named snapshot of your enabled plugins that you can switch back to at any time.
@@ -227,6 +229,56 @@ Deleted profile 'minimal'. 2 profile(s) remaining.
 
 ---
 
+### `/profile-reset`
+
+**Syntax:** `/profile-reset`
+
+**What it does:** Resets `enabledPlugins` in `~/.claude/settings.json` to include all installed plugins minus any blocked plugins. This gives you a clean slate with everything enabled. Takes no arguments.
+
+**Step-by-step behavior:**
+
+1. Reads `~/.claude/plugins/installed_plugins.json` to get all installed plugins. Stops if the file doesn't exist.
+2. Reads `~/.claude/plugins/blocklist.json` to check for blocked plugins (if the file doesn't exist, no plugins are excluded).
+3. Reads `~/.claude/settings.json` to get the current `enabledPlugins`. Stops if the file doesn't exist.
+4. Builds the reset state: all installed plugins set to `true`, minus blocked plugins. Always includes `plugin-profiles@local` (self-preservation).
+5. Validates all plugin keys against the expected format. Warns about and skips any invalid keys.
+6. Compares the current state to the reset state and shows a diff with categories: **Will be ENABLED**, **Will be DISABLED**, **Unchanged**, **Skipped (blocked)**.
+7. If the current state already matches the reset state, reports that there's nothing to change and stops.
+8. Asks for confirmation. If confirmed, saves the current plugins as `_previous` (auto-backup) and writes the new `enabledPlugins` to settings.json.
+
+**Example:**
+
+```
+> /profile-reset
+
+Changes:
+  Will be ENABLED:  superpowers@local, context7@registry
+  Will be DISABLED: (none)
+  Unchanged:        plugin-profiles@local, hookify@local
+  Skipped (blocked): sketchy-plugin@local
+
+Reset enabled plugins to all installed plugins as shown above?
+> Yes
+
+Reset to 4 plugins (all installed minus blocked).
+
+Auto-backup saved as `_previous` (use `/profile-load _previous` to undo).
+
+RESTART REQUIRED: Run `/exit` and relaunch Claude Code for changes to take effect.
+```
+
+**Edge cases and errors:**
+
+| Situation | Message |
+|---|---|
+| `installed_plugins.json` doesn't exist | "Cannot reset: `installed_plugins.json` not found. Claude Code needs at least one installed plugin to reset to." |
+| `settings.json` doesn't exist | "Cannot reset: `settings.json` not found." |
+| Current state already matches reset state | "Your enabled plugins already match the full installed set. Nothing to reset." |
+| Blocked plugins exist | Classified as "Skipped (blocked)" in the diff. |
+| User declines confirmation | No changes made. |
+
+---
+
 ## Workflows & Recipes
 
 ### Save and switch between workflows
@@ -284,6 +336,17 @@ List profiles to see what you have, then delete the ones you don't need:
 /profile-delete another-old-one
 ```
 
+### Start fresh with all plugins
+
+If you want a clean slate with every installed plugin enabled:
+
+```
+/profile-reset
+# restart Claude Code
+```
+
+This enables all installed plugins minus blocked ones — no need to have a saved profile.
+
 ### Start fresh after experimenting
 
 If you've been testing plugin combinations and want to get back to a known-good state:
@@ -324,11 +387,11 @@ Or if you saved before experimenting:
 
 ### Auto-backup (`_previous`)
 
-Every time you load a profile, your current plugin configuration is automatically saved as `_previous` before any changes are made. This means you can always undo the last load by running `/profile-load _previous`. The `_previous` profile is overwritten each time you load, so it always reflects the state immediately before the most recent load.
+Every time you load a profile or reset, your current plugin configuration is automatically saved as `_previous` before any changes are made. This means you can always undo the last load or reset by running `/profile-load _previous`. The `_previous` profile is overwritten each time you load or reset, so it always reflects the state immediately before the most recent change.
 
 ### Self-preservation
 
-When loading a profile, `plugin-profiles@local` is always included in the resulting `enabledPlugins`, even if the saved profile didn't contain it. This ensures the plugin-profiles plugin stays functional after every load — you can never accidentally lock yourself out of your profiles.
+When loading a profile or resetting, `plugin-profiles@local` is always included in the resulting `enabledPlugins`, even if the saved profile didn't contain it. This ensures the plugin-profiles plugin stays functional after every load or reset — you can never accidentally lock yourself out of your profiles.
 
 ### Read-only save
 
@@ -422,7 +485,7 @@ Technically yes, since it's plain JSON. However, the commands validate plugin ke
 
 ### "What if profiles.json gets corrupted?"
 
-All four commands check for valid JSON before operating. If the file can't be parsed, they stop immediately and report the error — they will never guess or reconstruct data. To recover, you can either fix the JSON manually or delete the file entirely (you'll lose all saved profiles, but the commands will treat it as a fresh start).
+All five commands check for valid JSON before operating. If the file can't be parsed, they stop immediately and report the error — they will never guess or reconstruct data. To recover, you can either fix the JSON manually or delete the file entirely (you'll lose all saved profiles, but the commands will treat it as a fresh start).
 
 ### "What if I save a profile and then uninstall one of its plugins?"
 
@@ -431,6 +494,10 @@ When you load that profile later, the uninstalled plugin will appear as "Skipped
 ### "Can I load a profile that doesn't include plugin-profiles?"
 
 Yes. The self-preservation feature automatically adds `plugin-profiles@local` to the loaded plugins, so you'll never lose access to your profiles.
+
+### "What does profile-reset do differently from profile-load?"
+
+`/profile-reset` enables **all** installed plugins (minus blocked ones) — it doesn't use a saved profile. `/profile-load` restores a specific saved set of plugins. Use reset when you want everything enabled; use load when you want a curated subset.
 
 ### "Does saving a profile capture any settings besides plugins?"
 

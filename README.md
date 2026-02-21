@@ -19,6 +19,7 @@ Then enable the plugin in Claude Code settings.
 /profile-save my-setup       # Save current enabled plugins as "my-setup"
 /profile-list                 # See all saved profiles
 /profile-load my-setup        # Restore that plugin set (restart required)
+/profile-reset                # Enable all installed plugins (clean slate)
 ```
 
 ## Commands
@@ -29,10 +30,11 @@ Then enable the plugin in Claude Code settings.
 | `/profile-load <name>` | Load a saved profile, replacing current plugins |
 | `/profile-list` | List all saved profiles |
 | `/profile-delete <name>` | Delete a saved profile |
+| `/profile-reset` | Reset to all installed plugins minus blocked ones |
 
 ## Features
 
-- **Auto-backup** — Every load auto-saves your current config as `_previous`, so you can always undo
+- **Auto-backup** — Every load or reset auto-saves your current config as `_previous`, so you can always undo
 - **Self-preservation** — The plugin keeps itself enabled after every load
 - **Safe validation** — Skips uninstalled or blocked plugins with clear warnings
 - **Read-only save** — Saving never modifies your settings, only reads them
