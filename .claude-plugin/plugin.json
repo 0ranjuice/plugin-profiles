@@ -1,0 +1,5 @@
+{
+  "name": "plugin-profiles",
+  "description": "Save and restore named plugin combinations for different workflows",
+  "version": "1.0.0"
+}
